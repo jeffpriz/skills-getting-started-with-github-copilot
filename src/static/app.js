@@ -4,6 +4,32 @@ document.addEventListener("DOMContentLoaded", () => {
   const signupForm = document.getElementById("signup-form");
   const messageDiv = document.getElementById("message");
 
+  // Function to unregister a participant
+  window.unregisterParticipant = async (activityName, email) => {
+    if (!confirm(`Are you sure you want to unregister ${email} from ${activityName}?`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `/activities/${encodeURIComponent(activityName)}/participants?email=${encodeURIComponent(email)}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      if (response.ok) {
+        fetchActivities();
+      } else {
+        const result = await response.json();
+        alert(result.detail || "Failed to unregister");
+      }
+    } catch (error) {
+      console.error("Error unregistering:", error);
+      alert("An error occurred while unregistering");
+    }
+  };
+
   // Function to fetch activities from API
   async function fetchActivities() {
     try {
@@ -20,11 +46,24 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const spotsLeft = details.max_participants - details.participants.length;
 
+        // Generate participants list HTML
+        const participantsHtml = details.participants.length > 0
+          ? `<ul class="participants-list">${details.participants.map(p => `
+              <li>
+                <span>${p}</span>
+                <span class="delete-icon" onclick="unregisterParticipant('${name}', '${p}')" title="Unregister">&#10006;</span>
+              </li>`).join('')}</ul>`
+          : '<p style="font-size: 0.85rem; color: #888; font-style: italic;">No participants yet</p>';
+
         activityCard.innerHTML = `
           <h4>${name}</h4>
           <p>${details.description}</p>
           <p><strong>Schedule:</strong> ${details.schedule}</p>
           <p><strong>Availability:</strong> ${spotsLeft} spots left</p>
+          <div class="participants-section">
+            <h5>Participants:</h5>
+            ${participantsHtml}
+          </div>
         `;
 
         activitiesList.appendChild(activityCard);
@@ -62,6 +101,7 @@ document.addEventListener("DOMContentLoaded", () => {
         messageDiv.textContent = result.message;
         messageDiv.className = "success";
         signupForm.reset();
+        fetchActivities();
       } else {
         messageDiv.textContent = result.detail || "An error occurred";
         messageDiv.className = "error";
